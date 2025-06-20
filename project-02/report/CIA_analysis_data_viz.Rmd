@@ -1,0 +1,90 @@
+---
+title: "Mini-Project 02"
+output: 
+  html_document:
+    keep_md: true
+    toc: true
+    toc_float: true
+---
+
+## Introduction
+
+In this project I seek to visualize the GDP in countries versus population density across the world using an interactive plot, spatial model, and linear model. The goal with these is to put into scope the reality of the massive difference between countries thriving and those who are not. Using the three models we can observe the scope of this reality in several different perspectives which may help people comprehend the stark contrast between major powers in our world. The overall story of these graphics shows the USA at the leading edge but there are several nations coming very close that I wasn't expecting such as Saudi Arabia and Australia with places like India having a lower GDP but high population density. 
+
+### Pre-processing
+
+For this analysis and summary I chose the data set titled CIACountries which show's statistics between countries such as oil production, population, GDP, etc. This code initializes the data set and the tidyverse library for use for later. All other libraries will be called when needed. Picking the appropriate data from CIACountries was a challenge as I need to tell a story and with this project we were told the general type of graphics to use. That being said I chose GDP versus population and decided to stick with those data values and explore the different models and how each could represent the data.
+
+```{r}
+
+library(tidyverse)
+CIA <- read_csv("https://raw.githubusercontent.com/aalhamadani/datasets/refs/heads/main/CIACountries.csv")
+
+```
+
+## Data Analysis
+
+### The interactive Plot
+
+After choosing the first set of data I wanted to use I had to pick on for the graphic types named to use. The interactive plot was the easiest choice as a scatter plot with an interactive element is a straightforward way to communicate data which is easily digestable. Once done I realized I could effectively up the complexity of the data representation with each model type which will be discussed in the next section. For this graphic I focused on displaying both GDP and Population while also allowing the user to hover over dots to see the country statistics in full from the .csv file. This repesents all data while putting it into what I want to focus on.
+
+```{r}
+
+library(plotly); 
+p <- ggplot(CIA, aes(x = pop, y = gdp, text = paste("Country:", country, "<br>Population:", pop, "<br>GDP:", gdp, "<br>Area:", area, "<br>Oil Production:", oil_prod, "<br>Internet Users:", net_users))) +
+     geom_point(aes(size = area, color = oil_prod), alpha = 0.7) +
+     scale_x_log10(labels = scales::comma) +
+     scale_y_log10(labels = scales::dollar) +
+     labs(title = "GDP vs. Population by Country", x = "Population (log scale)", y = "GDP (log scale)",color = "Oil Production", size = "Area (sq km)") +
+     theme_minimal();
+ggplotly(p, tooltip = "text") 
+
+```
+
+### The Spatial Visualization
+
+For this graphic I put together a map that has a clear dark outline for each country which allows for the hues in the palette of RdYlBu to show nicely. In this case the lighter the country is the better GDP they have and the more in the red they are the worse off the GDP is. When originally putting together this graphic the USA was white which meant no data available for the country. After some throubleshooting and research I was able to get the proper tone to display, however, the same issue is happening for several African nations and I could not get them to appear. Regardless, the graphic does show a visual distinctness with many north-western countries being well off and many eastern and southern countries being in a rough spot with GDP.
+
+```{r}
+
+library(leaflet)
+library(sf)
+library(rnaturalearth)
+
+CIA$country[CIA$country == "United States"] <- "United States of America"
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+world_cia <- merge(world, CIA, by.x = "name", by.y = "country", all.x = TRUE)
+
+pal <- colorNumeric("RdYlBu", domain = world_cia$gdp, na.color = "transparent")
+
+leaflet(world_cia) %>%
+  addTiles() %>%
+  addPolygons(fillColor = ~pal(gdp), color = "black", weight = 1, fillOpacity = 0.8) %>%
+  addLegend(position = "bottomright", pal = pal, values = ~gdp, title = "GDP per Capita", opacity = 0.8)
+
+```
+
+### The Model Visualization
+
+Finally we have the linear fit model which in this case is very warped by several of the larger population nations. Even after eliminating all of the major outliers the fit does not change much. This median line, in this case, makes sense as there are many more lower GDP/Population countries than big ones. What this graphic aims to show is that the average country on earth has a pretty low GDP when compared to some of the western countries and population, while most certainly having an impact, can be a hindrance depending on how that population is functioning. 
+
+```{r}
+
+# Simple linear regression: GDP vs Population
+model <- lm(gdp ~ pop, data = CIA)
+
+ggplot(CIA, aes(x = pop, y = gdp)) +
+  geom_point(alpha = 0.7) +
+  scale_x_continuous() +
+  geom_smooth(method = "lm", se = TRUE, color = "blue") +
+  labs(title = "Relationship between Population and GDP", x = "Population", y = "GDP")+
+  coord_cartesian(xlim = c(0, 4e8))
+
+
+```
+
+## Conslusions 
+
+Exploring the CIACountries data set showed that population and GDP have a pretty close correlation and that for some countries, population bloat is definitely a drain on GDP, we can see this in China and India for example. Other countries have less population and less GDP which makes sense and some like the USA have a sizable population and high GDP. Geographically this could be linked to raw material exports or industry but regardless it's sobering to see as here in the USA we tend to take our status for granted as we are so used to it. Furthermore, the specific data visualizations push this narrative well by displaying data in increasingly more complicated models which shows the reader progression and insight into the data as well as the narrative.
